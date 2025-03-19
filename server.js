@@ -25,7 +25,13 @@ app.get("/ping", (req, res) => {
     });
 });
 app.use('/api/auth', authRoutes);
-app.use(authMiddleware);
+
+// Default (not found) route
+app.use(function(req, res, next) {
+    return res.status(404).json({
+        'message': 'Route not found'
+    })
+});
 
 app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
 
