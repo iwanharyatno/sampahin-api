@@ -45,4 +45,15 @@ router.post('/register', [
     }
 });
 
+router.get('/user', async function (req, res) {
+    try {
+        const user = await User.find();
+        res.status(200).json({
+            result: user
+        });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
 module.exports = router;

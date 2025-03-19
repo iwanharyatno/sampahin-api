@@ -26,3 +26,5 @@ app.use('/api/auth', authRoutes);
 app.use(authMiddleware);
 
 app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
+
+module.exports = app;
