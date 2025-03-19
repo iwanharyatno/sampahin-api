@@ -10,7 +10,7 @@ router.post('/login', [
     body('password').notEmpty().withMessage('Password is required')
 ], async (req, res) => {
     const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(401).json({ errors: errors.array() });
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
     try {
         const { email, password } = req.body;
@@ -31,14 +31,14 @@ router.post('/register', [
 ], async (req, res) => {
     const errors = validationResult(req);
 
-    if (!errors.isEmpty()) return res.status(401).json({ errors: errors.array() });
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
     try {
-        const { name, email, password } = req.body;
+        const { name, email, password, phone } = req.body;
         
         if (await User.findOne({ email })) return res.status(400).json({ message: 'Email already exists!' });
 
-        const user = await User.create({ name, email, password, role: 'customer' });
+        const user = await User.create({ name, email, password, phone, role: 'customer' });
         res.status(201).json({ message: 'User registered successfully!', token: generateToken(user) });
     } catch (e) {
         return res.status(500).json({ message: e.message });
