@@ -31,6 +31,18 @@ const UserSchema = new mongoose.Schema({
         type: String,
         enum: ['active', 'inactive', 'banned'],
         default: 'active'
+    },
+    address: String,
+    gender: {
+        type: String,
+        enum: ['male', 'female'],
+        required: true
+    },
+    longitude: Number,
+    latitude: Number,
+    tps: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "TPS"
     }
 }, {
     timestamps: { createdAt: 'created_at', updatedAt: false }

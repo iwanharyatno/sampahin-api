@@ -6,6 +6,7 @@ const cors = require('cors');
 
 const authMiddleware = require('./middlewares/authMiddleware');
 const authRoutes = require('./routes/authRoutes');
+const tpsRoutes = require('./routes/tpsRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -25,6 +26,7 @@ app.get("/ping", (req, res) => {
     });
 });
 app.use('/api/auth', authRoutes);
+app.use('/api/tps', tpsRoutes);
 
 // Default (not found) route
 app.use(function(req, res, next) {
