@@ -15,6 +15,7 @@ const PickupRequestSchema = new mongoose.Schema({
         type: String,
         enum: ['requested', 'in_progress', 'completed', 'rejected'],
         required: true,
+        default: 'requested'
     },
     trash_type: {
         type: String,

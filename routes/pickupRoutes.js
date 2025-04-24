@@ -1,8 +1,13 @@
 const express = require("express");
 const roleMiddleware = require("../middlewares/roleMiddleware");
 const PickupRequest = require("../models/PickupRequest");
+const { v4: uuidv4 } = require("uuid");
 const authMiddleware = require("../middlewares/authMiddleware");
 const { body, validationResult } = require("express-validator");
+const { storage } = require("../firebase/config");
+const upload = require("../utils/file");
+
+const { ref, uploadBytes, getDownloadURL } = require('firebase/storage');
 
 const router = express.Router();
 
@@ -11,8 +16,7 @@ const router = express.Router();
 
 router.use(authMiddleware);
 
-router.post('/', roleMiddleware('customer'), [
-    body('status').notEmpty(),
+router.post('/', roleMiddleware('customer'), upload.single('photo'), [
     body('trash_type').notEmpty(),
     body('weight').notEmpty().isNumeric(),
     body('latitude').notEmpty().isNumeric(),
@@ -24,11 +28,25 @@ router.post('/', roleMiddleware('customer'), [
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
     try {
-        const { status, trash_type, weight, latitude, longitude, address } = req.body;
+        const { trash_type, weight, latitude, longitude, address } = req.body;
+
+        let photo_url = null;
+
+        // Upload file to Firebase if provided
+        if (req.file) {
+            const fileName = `trash-images/${uuidv4()}_${req.file.originalname}`;
+            const fileRef = ref(storage, fileName);
+
+            await uploadBytes(fileRef, req.file.buffer, {
+                contentType: req.file.mimetype,
+            });
+            photo_url = await getDownloadURL(fileRef);
+        }
+
         const result = await PickupRequest.create({
-            user: req.user._id, status, trash_type, weight,
+            user: req.user._id, trash_type, weight,
             latitude, longitude, address,
-            photo_url: req.body.photo_url,
+            photo_url,
             note: req.body.note,
             created_at: new Date(),
             updated_at: new Date(),
