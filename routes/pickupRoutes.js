@@ -57,6 +57,15 @@ router.post('/', roleMiddleware('customer'), upload.single('photo'), [
     }
 });
 
+router.get('/mine', roleMiddleware('customer'), async (req, res) => {
+    try {
+        const allReqs = await PickupRequest.find({ user: req.user._id });
+        return res.status(200).json(allReqs);
+    } catch (err) {
+        return res.status(500).json({ message: err.message });
+    }
+});
+
 router.get('/', roleMiddleware('admin', 'collector'), async (req, res) => {
     try {
         const allReqs = await PickupRequest.find().populate('user');
