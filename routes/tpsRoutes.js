@@ -68,8 +68,24 @@ router.put('/:code', roleMiddleware('admin'), [
     try {
         const { name, address, latitude, longitude, contact_info } = req.body;
 
-        const result = await TPS.updateOne({ code: req.params.code }, { name, address, latitude, longitude, contact_info, updated_at: new Date() });
+        await TPS.updateOne({ code: req.params.code }, { name, address, latitude, longitude, contact_info, updated_at: new Date() });
+        const result = await TPS.findOne({ code: req.params.code });
+
         return res.status(201).json(result);
+    } catch (err) {
+        return res.status(500).json({ message: err.message });
+    }
+});
+
+router.delete('/:code', async (req, res) => {
+    try {
+        const id = req.params.code;
+        const deleted = await TPS.findOne({ code: id });
+        const result = await TPS.deleteOne({ code: id });
+        return res.status(200).json({
+            message: "Deleted successfully",
+            tps: deleted
+        });
     } catch (err) {
         return res.status(500).json({ message: err.message });
     }
