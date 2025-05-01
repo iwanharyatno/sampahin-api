@@ -85,4 +85,49 @@ router.get('/:id', roleMiddleware('admin', 'collector'), async (req, res) => {
     }
 });
 
+router.put('/:id', roleMiddleware('customer'), upload.single('photo'), [
+    body('weight').optional().isNumeric(),
+    body('status').optional().isIn(['requested', 'in_progress', 'completed', 'rejected']),
+], async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+    try {
+        const { id } = req.params;
+        const { weight, status } = req.body;
+
+        const request = await PickupRequest.findById(id).populate('user');
+        if (!request) return res.status(404).json({ message: "Pickup request not found." });
+
+        // Optional: Ensure user owns the request
+        if (String(request.user._id) !== String(req.user._id)) {
+            return res.status(403).json({ message: "Not allowed to edit this request." });
+        }
+
+        // Update image if provided
+        if (req.file) {
+            const fileName = `trash-images/${uuidv4()}_${req.file.originalname}`;
+            const fileRef = ref(storage, fileName);
+
+            await uploadBytes(fileRef, req.file.buffer, {
+                contentType: req.file.mimetype,
+            });
+
+            request.photo_url = await getDownloadURL(fileRef);
+        }
+
+        // Update allowed fields
+        if (weight !== undefined) request.weight = weight;
+        if (status !== undefined) request.status = status;
+        request.updated_at = new Date();
+
+        await request.save();
+
+        return res.status(200).json(request);
+    } catch (err) {
+        return res.status(500).json({ message: err.message });
+    }
+});
+
+
 module.exports = router;
