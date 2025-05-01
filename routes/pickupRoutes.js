@@ -85,7 +85,7 @@ router.get('/:id', roleMiddleware('admin', 'collector'), async (req, res) => {
     }
 });
 
-router.put('/:id', roleMiddleware('customer'), upload.single('photo'), [
+router.put('/:id', roleMiddleware('customer', 'collector'), upload.single('photo'), [
     body('weight').optional().isNumeric(),
     body('status').optional().isIn(['requested', 'in_progress', 'completed', 'rejected']),
 ], async (req, res) => {
@@ -100,7 +100,7 @@ router.put('/:id', roleMiddleware('customer'), upload.single('photo'), [
         if (!request) return res.status(404).json({ message: "Pickup request not found." });
 
         // Optional: Ensure user owns the request
-        if (String(request.user._id) !== String(req.user._id)) {
+        if (String(request.user._id) !== String(req.user._id) && req.user.role != 'collector') {
             return res.status(403).json({ message: "Not allowed to edit this request." });
         }
 
@@ -117,8 +117,18 @@ router.put('/:id', roleMiddleware('customer'), upload.single('photo'), [
         }
 
         // Update allowed fields
-        if (weight !== undefined) request.weight = weight;
-        if (status !== undefined) request.status = status;
+        if (weight !== undefined) {
+            if (request.status != "requested") {
+                return res.status(403).json({ message: "User cannot update the weight when status is " + request.status });
+            }
+            request.weight = weight;
+        }
+        if (status !== undefined) {
+            if (req.user.role != "collector") {
+                return res.status(403).json({ message: "User cannot update the status" });
+            }
+            request.status = status;
+        }
         request.updated_at = new Date();
 
         await request.save();
