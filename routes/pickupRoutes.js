@@ -85,7 +85,7 @@ router.get('/:id', roleMiddleware('admin', 'collector'), async (req, res) => {
     }
 });
 
-router.put('/:id', roleMiddleware('customer', 'collector'), upload.single('photo'), [
+router.put('/:id', roleMiddleware('customer', 'collector', 'admin'), upload.single('photo'), [
     body('weight').optional().isNumeric(),
     body('status').optional().isIn(['requested', 'in_progress', 'completed', 'rejected']),
 ], async (req, res) => {
@@ -99,12 +99,15 @@ router.put('/:id', roleMiddleware('customer', 'collector'), upload.single('photo
         const request = await PickupRequest.findById(id).populate('user');
         if (!request) return res.status(404).json({ message: "Pickup request not found." });
 
-        // Optional: Ensure user owns the request
-        if (String(request.user._id) !== String(req.user._id) && req.user.role != 'collector') {
-            return res.status(403).json({ message: "Not allowed to edit this request." });
+        // Authorization check
+        const isOwner = String(request.user._id) === String(req.user._id);
+        const isCollectorOrAdmin = req.user.role === 'collector' || req.user.role === 'admin';
+
+        if (!isOwner && !isCollectorOrAdmin) {
+            return res.status(403).json({ message: "You are not allowed to edit this request." });
         }
 
-        // Update image if provided
+        // Upload image if provided
         if (req.file) {
             const fileName = `trash-images/${uuidv4()}_${req.file.originalname}`;
             const fileRef = ref(storage, fileName);
@@ -116,21 +119,32 @@ router.put('/:id', roleMiddleware('customer', 'collector'), upload.single('photo
             request.photo_url = await getDownloadURL(fileRef);
         }
 
-        // Update allowed fields
+        // Update weight (only if still 'requested')
         if (weight !== undefined) {
-            if (request.status != "requested") {
-                return res.status(403).json({ message: "User cannot update the weight when status is " + request.status });
+            if (request.status !== "requested") {
+                return res.status(403).json({ message: "Weight can only be updated while status is 'requested'." });
             }
             request.weight = weight;
         }
-        if (status !== undefined) {
-            if (req.user.role != "collector") {
-                return res.status(403).json({ message: "User cannot update the status" });
-            }
-            request.status = status;
-        }
-        request.updated_at = new Date();
 
+        // Update status (only collectors or admins can do this)
+        if (status !== undefined) {
+            if (!isCollectorOrAdmin) {
+                return res.status(403).json({ message: "Only collector or admin can update status." });
+            }
+
+            const wasCompleted = request.status === "completed";
+            request.status = status;
+
+            // Award points if newly completed
+            if (status === "completed" && !wasCompleted) {
+                const user = await User.findById(request.user._id);
+                user.points = (user.points || 0) + 10;
+                await user.save();
+            }
+        }
+
+        request.updated_at = new Date();
         await request.save();
 
         return res.status(200).json(request);
@@ -138,6 +152,5 @@ router.put('/:id', roleMiddleware('customer', 'collector'), upload.single('photo
         return res.status(500).json({ message: err.message });
     }
 });
-
 
 module.exports = router;

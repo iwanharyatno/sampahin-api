@@ -4,6 +4,7 @@ const { body, validationResult } = require('express-validator');
 const { generateToken } = require('../utils/jwt');
 const authMiddleware = require('../middlewares/authMiddleware');
 const TPS = require('../models/TPS');
+const PickupRequest = require('../models/PickupRequest');
 
 const router = express.Router();
 
@@ -100,6 +101,73 @@ router.get('/user', async function (req, res) {
         res.status(200).json(user);
     } catch (err) {
         res.status(500).json({ message: err.message });
+    }
+});
+
+router.put('/user', [
+    body('name').optional().isLength({ max: 100 }),
+    body('phone').optional().isLength({ max: 15 }),
+    body('address').optional(),
+    body('gender').optional().isIn(['male', 'female']),
+    body('latitude').optional().isNumeric(),
+    body('longitude').optional().isNumeric()
+], async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+    try {
+        const updates = {};
+        const fields = ['name', 'phone', 'address', 'gender', 'latitude', 'longitude'];
+
+        fields.forEach(field => {
+            if (req.body[field] !== undefined) {
+                updates[field] = req.body[field];
+            }
+        });
+
+        const updatedUser = await User.findByIdAndUpdate(
+            req.user._id,
+            updates,
+            { new: true, runValidators: true }
+        ).select('-password').populate("tps");
+
+        res.status(200).json({ message: 'Profile updated successfully', user: updatedUser });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+router.get('/user/stats', async (req, res) => {
+    try {
+        const userId = req.user._id;
+
+        const user = await User.findById(userId).select('points');
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        const aggregate = await PickupRequest.aggregate([
+            {
+                $match: {
+                    user: user._id,
+                    status: 'completed'
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    total_kg: { $sum: '$weight' }
+                }
+            }
+        ]);
+
+        const total_kg = aggregate.length > 0 ? aggregate[0].total_kg : 0;
+
+        return res.status(200).json({
+            total_points: user.points,
+            total_kg
+        });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ message: err.message });
     }
 });
 

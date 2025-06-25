@@ -42,6 +42,10 @@ const UserSchema = new mongoose.Schema({
     tps: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "TPS"
+    },
+    points: {
+        type: Number,
+        default: 0
     }
 }, {
     timestamps: { createdAt: 'created_at', updatedAt: false }
