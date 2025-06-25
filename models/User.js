@@ -46,6 +46,9 @@ const UserSchema = new mongoose.Schema({
     points: {
         type: Number,
         default: 0
+    },
+    profile_url: {
+        type: String
     }
 }, {
     timestamps: { createdAt: 'created_at', updatedAt: false }

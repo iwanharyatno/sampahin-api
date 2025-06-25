@@ -5,6 +5,10 @@ const { generateToken } = require('../utils/jwt');
 const authMiddleware = require('../middlewares/authMiddleware');
 const TPS = require('../models/TPS');
 const PickupRequest = require('../models/PickupRequest');
+const upload = require("../utils/file");
+const { storage } = require('../firebase/config');
+const { v4: uuidv4 } = require("uuid");
+const { ref, uploadBytes, getDownloadURL } = require('firebase/storage');
 
 const router = express.Router();
 
@@ -104,7 +108,7 @@ router.get('/user', async function (req, res) {
     }
 });
 
-router.put('/user', [
+router.put('/user', upload.single('profile'), [
     body('name').optional().isLength({ max: 100 }),
     body('phone').optional().isLength({ max: 15 }),
     body('address').optional(),
@@ -119,11 +123,25 @@ router.put('/user', [
         const updates = {};
         const fields = ['name', 'phone', 'address', 'gender', 'latitude', 'longitude'];
 
+        // Add simple fields to updates
         fields.forEach(field => {
             if (req.body[field] !== undefined) {
                 updates[field] = req.body[field];
             }
         });
+
+        // If profile picture was uploaded
+        if (req.file) {
+            const fileName = `profile-pictures/${uuidv4()}_${req.file.originalname}`;
+            const fileRef = ref(storage, fileName);
+
+            await uploadBytes(fileRef, req.file.buffer, {
+                contentType: req.file.mimetype
+            });
+
+            const downloadURL = await getDownloadURL(fileRef);
+            updates.profile_url = downloadURL;
+        }
 
         const updatedUser = await User.findByIdAndUpdate(
             req.user._id,
@@ -133,6 +151,7 @@ router.put('/user', [
 
         res.status(200).json({ message: 'Profile updated successfully', user: updatedUser });
     } catch (err) {
+        console.error(err);
         res.status(500).json({ message: err.message });
     }
 });
