@@ -1,5 +1,6 @@
 const express = require('express');
 const TPS = require('../models/TPS');
+const User = require('../models/User');
 
 const { body, validationResult } = require('express-validator');
 const authMiddleware = require('../middlewares/authMiddleware');
@@ -86,6 +87,17 @@ router.delete('/:code', async (req, res) => {
             message: "Deleted successfully",
             tps: deleted
         });
+    } catch (err) {
+        return res.status(500).json({ message: err.message });
+    }
+});
+
+
+router.get('/:tpsId/users', roleMiddleware('admin', 'collector'), async (req, res) => {
+    try {
+        const tpsId = req.params.tpsId;
+        const users = await User.find({ tps: tpsId }).select('-password');
+        return res.json(users);
     } catch (err) {
         return res.status(500).json({ message: err.message });
     }
