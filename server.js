@@ -14,6 +14,9 @@ const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+app.use(express.static('public'));
 
 console.log('Connecting to MongoDB', process.env.MONGO_URI);
 

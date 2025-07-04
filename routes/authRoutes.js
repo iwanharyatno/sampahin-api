@@ -9,6 +9,9 @@ const upload = require("../utils/file");
 const { storage } = require('../firebase/config');
 const { v4: uuidv4 } = require("uuid");
 const { ref, uploadBytes, getDownloadURL } = require('firebase/storage');
+const sendEmail = require('../utils/email');
+const crypto = require('crypto');
+const path = require('path');
 
 const router = express.Router();
 
@@ -93,6 +96,94 @@ router.post('/register/:email', [
     } catch (e) {
         return res.status(500).json({ message: e.message });
     }
+});
+
+router.post('/forgot-password', [
+    body('email').notEmpty().withMessage('Email is required')
+], async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+    try {
+        const user = await User.findOne({ email: req.body.email });
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const resetToken = user.createPasswordResetToken();
+        await user.save({ validateBeforeSave: false });
+
+        const resetURL = `${req.protocol}://${req.get('host')}/api/auth/reset-password/${resetToken}`;
+
+        const message = `
+            <h1>Password Reset Request</h1>
+            <p>We received a request to reset your password. Click the link below to reset it.</p>
+            <a href="${resetURL}" style="background-color: #4CAF50; color: white; padding: 14px 25px; text-align: center; text-decoration: none; display: inline-block;">Reset Password</a>
+            <p>This link will expire in 10 minutes.</p>
+            <p>If you did not request a password reset, please ignore this email.</p>
+        `;
+
+        try {
+            await sendEmail({
+                email: user.email,
+                subject: 'Your password reset token (valid for 10 mins)',
+                message
+            });
+
+            res.status(200).json({
+                status: 'success',
+                message: 'Token sent to email!'
+            });
+        } catch (err) {
+            user.passwordResetToken = undefined;
+            user.passwordResetExpires = undefined;
+            await user.save({ validateBeforeSave: false });
+
+            return res.status(500).json({ message: 'There was an error sending the email. Try again later!' });
+        }
+    } catch (e) {
+        return res.status(500).json({ message: e.message });
+    }
+});
+
+router.get('/reset-password/:token', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/reset-password.html'));
+});
+
+router.post('/reset-password/:token', async (req, res) => {
+    try {
+        const hashedToken = crypto
+            .createHash('sha256')
+            .update(req.params.token)
+            .digest('hex');
+
+        const user = await User.findOne({
+            passwordResetToken: hashedToken,
+            passwordResetExpires: { $gt: Date.now() }
+        });
+
+        if (!user) {
+            return res.status(400).json({ message: 'Token is invalid or has expired' });
+        }
+
+        if (req.body.password !== req.body.passwordConfirm) {
+            return res.status(400).json({ message: 'Passwords do not match' });
+        }
+
+        user.password = req.body.password;
+        user.passwordResetToken = undefined;
+        user.passwordResetExpires = undefined;
+        user.markModified('password');
+        await user.save();
+
+        res.status(200).json({ message: 'Password successfully reset!' });
+    } catch (e) {
+        return res.status(500).json({ message: e.message });
+    }
+});
+
+router.get('/reset-password-success', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/reset-password-success.html'));
 });
 
 router.use(authMiddleware);
