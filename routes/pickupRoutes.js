@@ -8,6 +8,7 @@ const { storage } = require("../firebase/config");
 const upload = require("../utils/file");
 
 const { ref, uploadBytes, getDownloadURL } = require('firebase/storage');
+const User = require("../models/User");
 
 const router = express.Router();
 
@@ -139,7 +140,7 @@ router.put('/:id', roleMiddleware('customer', 'collector', 'admin'), upload.sing
             // Award points if newly completed
             if (status === "completed" && !wasCompleted) {
                 const user = await User.findById(request.user._id);
-                user.points = (user.points || 0) + 10;
+                user.points = (user.points || 0) + request.weight * 5;
                 await user.save();
             }
         }
