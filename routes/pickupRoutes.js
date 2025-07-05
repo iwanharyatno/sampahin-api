@@ -60,7 +60,7 @@ router.post('/', roleMiddleware('customer'), upload.single('photo'), [
 
 router.get('/mine', roleMiddleware('customer'), async (req, res) => {
     try {
-        const allReqs = await PickupRequest.find({ user: req.user._id });
+        const allReqs = await PickupRequest.find({ user: req.user._id }).populate('collector').sort({ created_at: -1 });
         return res.status(200).json(allReqs);
     } catch (err) {
         return res.status(500).json({ message: err.message });
@@ -69,7 +69,7 @@ router.get('/mine', roleMiddleware('customer'), async (req, res) => {
 
 router.get('/', roleMiddleware('admin', 'collector'), async (req, res) => {
     try {
-        const allReqs = await PickupRequest.find().populate('user');
+        const allReqs = await PickupRequest.find().populate('user').populate('collector').sort({ created_at: -1 });
         return res.status(200).json(allReqs);
     } catch (err) {
         return res.status(500).json({ message: err.message });
@@ -136,6 +136,11 @@ router.put('/:id', roleMiddleware('customer', 'collector', 'admin'), upload.sing
 
             const wasCompleted = request.status === "completed";
             request.status = status;
+
+            // Assign collector if in progress or completed
+            if (status === "in_progress" || status === "completed") {
+                request.collector = req.user._id;
+            }
 
             // Award points if newly completed
             if (status === "completed" && !wasCompleted) {
