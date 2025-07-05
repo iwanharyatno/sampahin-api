@@ -19,7 +19,6 @@ router.use(authMiddleware);
 
 router.post('/', roleMiddleware('customer'), upload.single('photo'), [
     body('trash_type').notEmpty(),
-    body('weight').notEmpty().isNumeric(),
     body('latitude').notEmpty().isNumeric(),
     body('longitude').notEmpty().isNumeric(),
     body('address').notEmpty(),
